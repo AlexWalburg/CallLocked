@@ -20,7 +20,10 @@ void addNumberViaImage(BuildContext context) async{
     var pubKey = encoder.parsePublicKeyFromPem(pem);
     var encodedNum = encoder.encrypt(numToEncrypt, pubKey);
     var listingMaker = ListingMaker();
-    var listing = Listing.fromMap({"id": listingNum,"phoneNum" : encodedNum});
+    var listing = Listing.fromMap({"id": listingNum,"phoneNum" : numToEncrypt});
+    await listingMaker.open();
+    listingMaker.insert(listing);
+    constants.Constants.registerListing(listingNum, encodedNum);
   }
   showDialog(
       context: context,
@@ -85,6 +88,9 @@ class ListingMaker{
   }
   Future<int> update(Listing entry) async {
     return await db.update('listings', entry.toMap(), where: 'phoneNum like ? and id=?', whereArgs: [entry.phoneNum,entry.id]);
+  }
+  Future<int> insert(Listing entry) async{
+    return await db.insert('listings', entry.toMap());
   }
   Future<List<Listing>> getListings(int id) async {
     List<Map> maps = await db.query('listings', columns: ['id', 'phoneNum'], where: 'id=?', whereArgs: [id]);

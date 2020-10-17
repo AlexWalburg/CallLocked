@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:html';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +24,13 @@ class Constants{
     await file.writeAsBytes(pngBytes);
     print(file.path);
     Share.shareFiles([file.path],mimeTypes: ['image/png']);
+  }
+  static void registerListing(int listingNum, String encrytptedNumber) async{
+    var response = await http.post(address + "/addNumber", body:
+    {
+      "listingId" : listingNum.toString(),
+      "encryptedPhoneNumber" : encrytptedNumber
+    });
   }
   static void registerGroup(String groupName, bool isPublic) async {
       //todo gen key, make api calls
