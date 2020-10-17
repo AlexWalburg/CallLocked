@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:pointycastle/export.dart';
 import 'package:pointycastle/random/fortuna_random.dart';
@@ -116,15 +117,15 @@ class RsaKeyHelper {
       ..init(true, new PublicKeyParameter<RSAPublicKey>(publicKey));
     var cipherText = cipher.process(new Uint8List.fromList(plaintext.codeUnits));
 
-    return new String.fromCharCodes(cipherText);
+    return base64.encode(cipherText);
   }
 
   String decrypt(String ciphertext, RSAPrivateKey privateKey) {
     var cipher = OAEPEncoding(RSAEngine())
       ..init(false, new PrivateKeyParameter<RSAPrivateKey>(privateKey));
-    var decrypted = cipher.process(new Uint8List.fromList(ciphertext.codeUnits));
+    var decrypted = cipher.process(base64.decode(ciphertext));
 
-    return new String.fromCharCodes(decrypted);
+    return base64.encode(decrypted);
   }
 
   parsePublicKeyFromPem(pemString) {

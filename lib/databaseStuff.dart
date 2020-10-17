@@ -1,6 +1,44 @@
+import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:CallLock/constants.dart' as constants;
 
+import 'package:image_picker/image_picker.dart';
+import 'package:qrscan/qrscan.dart' as scanner;
+
+void addNumberViaImage(BuildContext context) async{
+  String numToEncrypt = "";
+  void addImageForReal() async{
+    PickedFile image = await ImagePicker().getImage(source: ImageSource.gallery);
+    if(image=null){
+      return;
+    }
+    String code = await scanner.scanPath(image.path);
+    String pem = code.substring(code.indexOf("\n")+1);
+    int listingNum = int.parse(code.substring(0,code.indexOf("\n")));
+    var encoder = constants.RsaKeyHelper();
+    var pubKey = encoder.parsePublicKeyFromPem(pem);
+    var encodedNum = encoder.encrypt(numToEncrypt, pubKey);
+    var listingMaker = ListingMaker();
+    var listing = Listing.fromMap({"id": listingNum,"phoneNum" : encodedNum});
+  }
+  showDialog(
+      context: context,
+      child: SimpleDialog(
+        title: Text("Add A Number From A File"),
+        children: [
+          TextField(
+            keyboardType: TextInputType.phone,
+            onChanged: (String input){numToEncrypt=input;},
+          ),
+          RaisedButton(
+            child: Text("Choose Image And Add File"),
+            onPressed: addImageForReal,
+          ),
+        ],
+      )
+  );
+}
 void clearDB() async{
   Database db = await openDatabase(join(await getDatabasesPath(),"dataBase.db"));
   await db.transaction((txn) async {
@@ -38,8 +76,8 @@ class Listing{
 
 class ListingMaker{
   Database db;
-  Future open(String path) async {
-    db = await openDatabase(path);
+  Future open() async {
+    db = await openDatabase(join(await getDatabasesPath(), "dataBase.db"));
   }
   Future close() async => db.close();
   Future<int> delete(String phoneNum) async {

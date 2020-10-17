@@ -22,6 +22,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>NSContactsUsageDescription</key>
     <string>The App needs to be able to modify contacts to insert the group for caller ID</string>
+    <key>NSPhotoLibraryUsageDescription</key>
+    <string>App needs to be able to read qr codes from a file</string>
+    <key>NSCameraUsageDescription</key>
+    <string>App needs to be able to read qr codes from a photo</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

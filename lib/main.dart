@@ -80,6 +80,9 @@ class _MyHomePageState extends State<MyHomePage> {
       });
     }
   }
+
+
+
   @override
   void initState(){
     super.initState();
@@ -113,11 +116,64 @@ class _MyHomePageState extends State<MyHomePage> {
                       shape: BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10.0))),
                       padding: EdgeInsets.symmetric(vertical: 25.0, horizontal: 4.0),
                   ),
+                  RaisedButton(child: Text("Add Number To Group", style: buttonStyle),
+                      shape: BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                      onPressed: (){
+                          showDialog(
+                            context: context,
+                            child: SimpleDialog(
+                              title: Text("Add Number To A Group"),
+
+                              children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.orange,
+                                            borderRadius: BorderRadius.all(Radius.circular(8.0))
+                                          ),
+                                          child:IconButton(
+                                              icon: Icon(Icons.article_outlined),
+                                              onPressed: null,
+                                              iconSize: 50.0,
+                                        )
+                                      ),
+                                      Container(
+                                          decoration: BoxDecoration(
+                                              color: Colors.blueAccent,
+                                              borderRadius: BorderRadius.all(Radius.circular(8.0))
+                                          ),
+                                          child:IconButton(
+                                            icon: Icon(Icons.camera_alt_outlined),
+                                            onPressed: null,
+                                            iconSize: 50.0,
+                                          )
+                                      ),
+                                      Container(
+                                          decoration: BoxDecoration(
+                                              color: Colors.green,
+                                              borderRadius: BorderRadius.all(Radius.circular(8.0))
+                                          ),
+                                          child:IconButton(
+                                            icon: Icon(Icons.upload_file),
+                                            onPressed: null,
+                                            iconSize: 50.0,
+                                          )
+                                      ),
+                                    ],
+                                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  )
+                              ],
+                            )
+                          );
+                      },
+                      padding:EdgeInsets.symmetric(vertical:25.0,horizontal: 4.0)
+                  ),
                   RaisedButton(child: Text("Delete Invalid Entries", style: buttonStyle),
                       shape: BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
                       onPressed: deleteInvalidEntries,
                       padding:EdgeInsets.symmetric(vertical:25.0,horizontal: 4.0)
-                  )
+                  ),
                 ]
             )
         )
