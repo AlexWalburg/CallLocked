@@ -190,7 +190,9 @@ class GroupPanel extends StatelessWidget{
                   onPressed: (){showDialog(
                     context: context,
                     child: SimpleDialog(
+                      contentPadding: EdgeInsets.all(8.0),
                       children: [
+                        Text("Warning: This is the ADD CONTACT dialog. If you share this with someone, they can add any number they want to your group."),
                         RaisedButton(
                             onPressed: (){Share.share("Hello! The person sending this wants you to register your number with them on CallLock. Just head over to calllock.github.io and use everything below the dashed line!\n-----\n" + group.id.toString() + "\n" + group.pubkey);},
                             child: Text("Share Text")
@@ -206,6 +208,42 @@ class GroupPanel extends StatelessWidget{
                             child: QrImage(data: group.id.toString() + "\n" + group.pubkey,
                               errorCorrectionLevel: QrErrorCorrectLevel.L,
                               backgroundColor: Colors.white,
+                              embeddedImage: AssetImage('graphics/CallLockLogo.png'),
+                            )
+                        )
+                      ],
+                    ),
+
+                  );},
+                  splashColor: Colors.orangeAccent,)
+            ),
+            Container(
+                padding: EdgeInsets.symmetric(horizontal: 5.0),
+                color: Colors.green,
+                child:IconButton(
+                  icon: Icon(Icons.share),
+                  onPressed: (){showDialog(
+                    context: context,
+                    child: SimpleDialog(
+                      contentPadding: EdgeInsets.all(8.0),
+                      children: [
+                        Text("Warning: This is the SHARE GROUP dialog. If you send this to someone, they can see every single number in the group!"),
+                        RaisedButton(
+                            onPressed: (){Share.share("The person sharing this just sent you a CallLock Group! Head over to the app to add it to your phone.\n-----\n" + group.id.toString() + "\n" + group.privkey);},
+                            child: Text("Share Text")
+                        ),
+                        RaisedButton(
+                            onPressed: (){
+                              sharePng();
+                            },
+                            child: Text("Share QR Code")
+                        ),
+                        RepaintBoundary(
+                            key: globalKey,
+                            child: QrImage(data: group.id.toString() + "\n" + group.privkey,
+                              errorCorrectionLevel: QrErrorCorrectLevel.L,
+                              backgroundColor: Colors.white,
+                              embeddedImage: AssetImage('graphics/CallLockLogo.png'),
                             )
                         )
                       ],
