@@ -208,7 +208,7 @@ class GroupPanel extends StatelessWidget{
                             child: QrImage(data: group.id.toString() + "\n" + group.pubkey,
                               errorCorrectionLevel: QrErrorCorrectLevel.L,
                               backgroundColor: Colors.white,
-                              embeddedImage: AssetImage('graphics/CallLockLogo.png'),
+                              embeddedImage: AssetImage('graphics/CallLockLogoQRCode.png'),
                             )
                         )
                       ],
@@ -243,7 +243,7 @@ class GroupPanel extends StatelessWidget{
                             child: QrImage(data: group.id.toString() + "\n" + group.privkey,
                               errorCorrectionLevel: QrErrorCorrectLevel.L,
                               backgroundColor: Colors.white,
-                              embeddedImage: AssetImage('graphics/CallLockLogo.png'),
+                              embeddedImage: AssetImage('graphics/CallLockLogoQRCode.png'),
                             )
                         )
                       ],
