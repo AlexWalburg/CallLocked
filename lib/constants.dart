@@ -27,6 +27,28 @@ class Constants{
       "encryptedPhoneNumber" : encrytptedNumber
     });
   }
+  static Future<Group> pullGroup(String idString) async{
+    GroupMaker gm = GroupMaker();
+    await gm.open();
+    String pem = idString.substring(idString.indexOf("\n")+1);
+    int listingNum = int.parse(idString.substring(0,idString.indexOf("\n")));
+    // check if the group has already been added
+    Group g = await gm.getGroup(listingNum);
+    if(g!=null){
+      await gm.close();
+      return g;
+    }
+    String name = jsonDecode((await http.post(address + '/getListingName',
+      body: {
+      "listingId": listingNum
+      }
+    )).body)[0];
+    var group = Group(listingNum,"",name,pem,"");
+    await gm.insert(group);
+    syncNums(listingNum); //this sets the timestamp  appropriately and pulls numbers
+    await gm.close();
+    return group;
+  }
   static void registerGroup(String groupName, bool isPublic) async {
       //todo gen key, make api calls
       var rsaHelper = new RsaKeyHelper();
@@ -73,7 +95,6 @@ class Constants{
         .isGranted) { //we use the ||'s feature to automatically skip if the first one returns true to branch automatically
       for(var encryptedNumber in numbers){
         var decryptedNumber = decryptor.decrypt(encryptedNumber[0], privKey);
-        print(decryptedNumber);
         var contactsWithNum = await ContactsService.getContactsForPhone(decryptedNumber, withThumbnails: false);
         if(contactsWithNum.isEmpty) {
           ContactsService.addContact(new Contact(prefix: group.name + ":", givenName: " ", familyName: " ", phones: [new Item(label: "home",value: decryptedNumber)]));
@@ -93,6 +114,39 @@ class Constants{
     }
   }
 
+  static void hardSyncNums(int id) async{
+    GroupMaker gm = GroupMaker();
+    await gm.open();
+    var group = await gm.getGroup(id);
+    gm.close();
+    var lm = ListingMaker();
+    await lm.open();
+    var maps = await lm.getListings(id);
+    if (await Permission.contacts.isGranted || await Permission.contacts
+        .request()
+        .isGranted) { //we use the ||'s feature to automatically skip if the first one returns true to branch automatically
+      for(var map in maps){
+        var decryptedNumber = map.phoneNum;
+        var contactsWithNum = await ContactsService.getContactsForPhone(decryptedNumber, withThumbnails: false);
+        if(contactsWithNum.isEmpty) {
+          ContactsService.addContact(new Contact(prefix: group.name + ":", givenName: " ", familyName: " ", phones: [new Item(label: "home",value: decryptedNumber)]));
+        } else {
+          for(var contact in contactsWithNum){
+            if(contact.prefix!=null){
+              if(!contact.prefix.contains(group.name + ": ")) {
+                contact.prefix = group.name + ": " + contact.prefix;
+              }
+            } else{
+              contact.prefix = group.name + ": ";
+            }
+            ContactsService.updateContact(contact);
+          }
+        }
+      }
+    }
+    await lm.close();
+    syncNums(id);
+  }
 }
 //taken from https://gist.github.com/proteye/982d9991922276ccfb011dfc55443d74
 // major props to them for doing encryption work i do not understand

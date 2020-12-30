@@ -256,9 +256,24 @@ class GroupPanel extends StatelessWidget{
             Container(
               padding: EdgeInsets.symmetric(horizontal: 5.0),
               color: Colors.orange,
-              child: IconButton(icon: Icon(Icons.autorenew), onPressed: (){
-                Constants.syncNums(group.id);
-              }
+              child: GestureDetector(
+                onLongPress: (){
+                  showDialog(
+                    context: context,
+                    child: AlertDialog(
+                      content: Text("Are you sure you want to hard resync? This may take a while"),
+                      actions: [
+                        TextButton(
+                            onPressed: (){Navigator.pop(context);}, child: Text("Cancel")),
+                        RaisedButton(onPressed: (){Constants.hardSyncNums(group.id); Navigator.pop(context);}, child: Text("Resync")),
+                      ],
+                    )
+                  );
+                },
+                child: IconButton(icon: Icon(Icons.autorenew), onPressed: (){
+                  Constants.syncNums(group.id);
+                },
+                ),
               ),
             ),
             Container(

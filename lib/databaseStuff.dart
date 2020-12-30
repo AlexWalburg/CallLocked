@@ -6,6 +6,72 @@ import 'package:CallLock/constants.dart' as constants;
 import 'package:image_picker/image_picker.dart';
 import 'package:qrscan/qrscan.dart' as scanner;
 
+void addGroupViaText(BuildContext context) async{
+  String code = "";
+  showDialog(
+      context: context,
+      child: SimpleDialog(
+        title: Text("Add A Group From Text"),
+        contentPadding: EdgeInsets.all(15),
+        children: [
+          TextField(
+            keyboardType: TextInputType.multiline,
+            decoration: InputDecoration(hintText: "Key"),
+            maxLines: null,
+            onChanged: (String input){code=input;},
+          ),
+          RaisedButton(
+            child: Text("Add Group"),
+            onPressed: (){constants.Constants.pullGroup(code);},
+          ),
+        ],
+      )
+  );
+}
+
+void addGroupViaCamera(BuildContext context) async{
+  void addImageForReal() async{
+    String code = await scanner.scan();
+
+    constants.Constants.pullGroup(code);
+  }
+  showDialog(
+      context: context,
+      child: SimpleDialog(
+        title: Text("Add A Number From Camera"),
+        contentPadding: EdgeInsets.all(15),
+        children: [
+          RaisedButton(
+            child: Text("Scan code and register number"),
+            onPressed: addImageForReal,
+          ),
+        ],
+      )
+  );
+}
+void addGroupViaImage(BuildContext context) async{
+  void addImageForReal() async{
+    PickedFile image = await ImagePicker().getImage(source: ImageSource.gallery);
+    if(image==null){
+      return;
+    }
+    String code = await scanner.scanPath(image.path);
+    constants.Constants.pullGroup(code);
+  }
+  showDialog(
+      context: context,
+      child: SimpleDialog(
+        title: Text("Add A Number From A File"),
+        contentPadding: EdgeInsets.all(15),
+        children: [
+          RaisedButton(
+            child: Text("Choose Image And Add File"),
+            onPressed: addImageForReal,
+          ),
+        ],
+      )
+  );
+}
 void addNumberViaText(BuildContext context) async{
   String numToEncrypt = "";
   String code = "";
@@ -227,6 +293,14 @@ class GroupMaker{
   }
   Future<int> insert(Group entry) async{
     return await db.insert("groups", entry.toMap());
+  }
+  Future<List<int>> getIdList() async{
+    var strings = await db.query("groups",columns: ["id",]);
+    var ints = List<int>();
+    for(var string in strings){
+      ints.add(string["id"]);
+    }
+    return ints;
   }
   Future<Group> getGroup(int id) async {
     List<Map> maps = await db.query('groups', where: 'id=?', whereArgs: [id]);

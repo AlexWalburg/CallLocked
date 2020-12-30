@@ -169,9 +169,57 @@ class _MyHomePageState extends State<MyHomePage> {
                       },
                       padding:EdgeInsets.symmetric(vertical:25.0,horizontal: 4.0)
                   ),
-                  RaisedButton(child: Text("Fix Entry", style: buttonStyle),
+                  RaisedButton(child: Text("Add Group", style: buttonStyle),
                       shape: BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
-                      onPressed: fixDB,
+                      onPressed: (){
+                        showDialog(
+                            context: context,
+                            child: SimpleDialog(
+                              title: Text("Add A Group"),
+
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                        decoration: BoxDecoration(
+                                            color: Colors.orange,
+                                            borderRadius: BorderRadius.all(Radius.circular(8.0))
+                                        ),
+                                        child:IconButton(
+                                          icon: Icon(Icons.article_outlined),
+                                          onPressed: (){addGroupViaText(context);},
+                                          iconSize: 50.0,
+                                        )
+                                    ),
+                                    Container(
+                                        decoration: BoxDecoration(
+                                            color: Colors.blueAccent,
+                                            borderRadius: BorderRadius.all(Radius.circular(8.0))
+                                        ),
+                                        child:IconButton(
+                                          icon: Icon(Icons.camera_alt_outlined),
+                                          onPressed: (){addGroupViaCamera(context);},
+                                          iconSize: 50.0,
+                                        )
+                                    ),
+                                    Container(
+                                        decoration: BoxDecoration(
+                                            color: Colors.green,
+                                            borderRadius: BorderRadius.all(Radius.circular(8.0))
+                                        ),
+                                        child:IconButton(
+                                          icon: Icon(Icons.upload_file),
+                                          onPressed: (){addGroupViaImage(context);},
+                                          iconSize: 50.0,
+                                        )
+                                    ),
+                                  ],
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                )
+                              ],
+                            )
+                        );
+                      },
                       padding:EdgeInsets.symmetric(vertical:25.0,horizontal: 4.0)
                   ),
                 ]
@@ -211,7 +259,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void syncGroups() async{
 
   }
-  void fixDB() async{
+  void addGroupPopUpCreator() async{
 
   }
 }
