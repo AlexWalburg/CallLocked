@@ -39,7 +39,7 @@ void addNumberViaText(BuildContext context) async{
             onChanged: (String input){code=input;},
           ),
           RaisedButton(
-            child: Text("Choose Image And Add File"),
+            child: Text("Add Number"),
             onPressed: addImageForReal,
           ),
         ],
@@ -124,8 +124,8 @@ void addNumberViaImage(BuildContext context) async{
 void clearDB() async{
   Database db = await openDatabase(join(await getDatabasesPath(),"dataBase.db"));
   await db.transaction((txn) async {
-    await txn.delete("listings");
-    await txn.delete("groups");
+    await txn.execute("drop table listings");
+    await txn.execute("drop table groups");
   });
 }
 void createDB() async{

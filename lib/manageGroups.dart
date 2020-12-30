@@ -255,18 +255,26 @@ class GroupPanel extends StatelessWidget{
             Expanded(child:Text(group.id.toString() + ": " + group.name, style: TextStyle(fontSize: 20.0,),textAlign: TextAlign.center,)),
             Container(
               padding: EdgeInsets.symmetric(horizontal: 5.0),
+              color: Colors.orange,
+              child: IconButton(icon: Icon(Icons.autorenew), onPressed: (){
+                Constants.syncNums(group.id);
+              }
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 5.0),
               color: Colors.red,
               child: IconButton(icon: Icon(Icons.delete_forever), onPressed: (){showDialog(
-                  child: AlertDialog(content: Text(
-                      "Are you sure you want to delete this group? This is a permanent action which cannot be undone.\n (Warning: it takes some time to update that an entry is gone, try going to the home tab and back)"),
-                    actions: [
-                      TextButton(
-                          onPressed: (){Navigator.pop(context);}, child: Text("Cancel")),
-                      RaisedButton(onPressed: (){removeGroup(); Navigator.pop(context);}, child: Text("Delete")),
-                    ],
-                    ),
+                child: AlertDialog(content: Text(
+                    "Are you sure you want to delete this group? This is a permanent action which cannot be undone.\n (Warning: it takes some time to update that an entry is gone, try going to the home tab and back)"),
+                  actions: [
+                    TextButton(
+                        onPressed: (){Navigator.pop(context);}, child: Text("Cancel")),
+                    RaisedButton(onPressed: (){removeGroup(); Navigator.pop(context);}, child: Text("Delete")),
+                  ],
+                ),
                 context: context,
-                  );}
+              );}
               ),
             ),
           ]

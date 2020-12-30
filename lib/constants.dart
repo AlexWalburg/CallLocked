@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'package:permission_handler/permission_handler.dart';
 import 'package:contacts_service/contacts_service.dart';
 import 'package:pointycastle/export.dart';
 import 'package:pointycastle/random/fortuna_random.dart';
@@ -60,23 +60,34 @@ class Constants{
     var group = await gm.getGroup(id);
     var response = await http.post(address + "/getListingAfterTime",
     body: {
-     "listingId": id,
-      "timestamp" : group.timestamp
+     "listingId": id.toString(),
+      "timestamp" : group.timestamp.toString()
     });
     group.timestamp = DateTime.now().millisecondsSinceEpoch;
-    gm.update(group);
+    gm.update(group); //get that updated asap
     var numbers = jsonDecode(response.body);
     var decryptor = RsaKeyHelper();
     var privKey = decryptor.parsePrivateKeyFromPem(group.privkey);
-    for(var encryptedNumber in numbers){
-      var decryptedNumber = decryptor.decrypt(encryptedNumber, privKey);
-      var contactsWithNum = await ContactsService.getContactsForPhone(decryptedNumber);
-      if(contactsWithNum.isEmpty) {
-        ContactsService.addContact(new Contact(prefix: group.name + ":"));
-      } else {
-        for(var contact in contactsWithNum){
-          contact.prefix=group.name + ": " + contact.prefix;
-          ContactsService.updateContact(contact);
+    if (await Permission.contacts.isGranted || await Permission.contacts
+        .request()
+        .isGranted) { //we use the ||'s feature to automatically skip if the first one returns true to branch automatically
+      for(var encryptedNumber in numbers){
+        var decryptedNumber = decryptor.decrypt(encryptedNumber[0], privKey);
+        print(decryptedNumber);
+        var contactsWithNum = await ContactsService.getContactsForPhone(decryptedNumber, withThumbnails: false);
+        if(contactsWithNum.isEmpty) {
+          ContactsService.addContact(new Contact(prefix: group.name + ":", givenName: " ", familyName: " ", phones: [new Item(label: "home",value: decryptedNumber)]));
+        } else {
+          for(var contact in contactsWithNum){
+            if(contact.prefix!=null){
+              if(!contact.prefix.contains(group.name + ": ")) {
+                contact.prefix = group.name + ": " + contact.prefix;
+              }
+            } else{
+              contact.prefix = group.name + ": ";
+            }
+            ContactsService.updateContact(contact);
+          }
         }
       }
     }
@@ -154,7 +165,7 @@ class RsaKeyHelper {
       ..init(false, new PrivateKeyParameter<RSAPrivateKey>(privateKey));
     var decrypted = cipher.process(base64.decode(ciphertext));
 
-    return base64.encode(decrypted);
+    return utf8.decode(decrypted);
   }
 
   parsePublicKeyFromPem(pemString) {
