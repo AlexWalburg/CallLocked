@@ -1,8 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+import 'package:contacts_service/contacts_service.dart';
 import 'package:pointycastle/export.dart';
 import 'package:pointycastle/random/fortuna_random.dart';
 import 'package:http/http.dart' as http;
@@ -11,8 +9,6 @@ import 'package:CallLock/databaseStuff.dart';
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:io';
-import 'package:path/path.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:share/share.dart';
 
@@ -58,7 +54,33 @@ class Constants{
       await maker.insert(newGroup);
 
   }
-
+  static void syncNums(int id) async{
+    var gm = new GroupMaker();
+    await gm.open();
+    var group = await gm.getGroup(id);
+    var response = await http.post(address + "/getListingAfterTime",
+    body: {
+     "listingId": id,
+      "timestamp" : group.timestamp
+    });
+    group.timestamp = DateTime.now().millisecondsSinceEpoch;
+    gm.update(group);
+    var numbers = jsonDecode(response.body);
+    var decryptor = RsaKeyHelper();
+    var privKey = decryptor.parsePrivateKeyFromPem(group.privkey);
+    for(var encryptedNumber in numbers){
+      var decryptedNumber = decryptor.decrypt(encryptedNumber, privKey);
+      var contactsWithNum = await ContactsService.getContactsForPhone(decryptedNumber);
+      if(contactsWithNum.isEmpty) {
+        ContactsService.addContact(new Contact(prefix: group.name + ":"));
+      } else {
+        for(var contact in contactsWithNum){
+          contact.prefix=group.name + ": " + contact.prefix;
+          ContactsService.updateContact(contact);
+        }
+      }
+    }
+  }
 
 }
 //taken from https://gist.github.com/proteye/982d9991922276ccfb011dfc55443d74

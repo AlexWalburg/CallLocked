@@ -134,7 +134,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                           ),
                                           child:IconButton(
                                               icon: Icon(Icons.article_outlined),
-                                              onPressed: null,
+                                              onPressed: (){addNumberViaText(context);},
                                               iconSize: 50.0,
                                         )
                                       ),
@@ -145,7 +145,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                           ),
                                           child:IconButton(
                                             icon: Icon(Icons.camera_alt_outlined),
-                                            onPressed: null,
+                                            onPressed: (){addNumberViaCamera(context);},
                                             iconSize: 50.0,
                                           )
                                       ),
@@ -156,7 +156,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                           ),
                                           child:IconButton(
                                             icon: Icon(Icons.upload_file),
-                                            onPressed: null,
+                                            onPressed: (){addNumberViaImage(context);},
                                             iconSize: 50.0,
                                           )
                                       ),
@@ -169,9 +169,9 @@ class _MyHomePageState extends State<MyHomePage> {
                       },
                       padding:EdgeInsets.symmetric(vertical:25.0,horizontal: 4.0)
                   ),
-                  RaisedButton(child: Text("Delete Invalid Entries", style: buttonStyle),
+                  RaisedButton(child: Text("Fix Entry", style: buttonStyle),
                       shape: BeveledRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
-                      onPressed: deleteInvalidEntries,
+                      onPressed: fixDB,
                       padding:EdgeInsets.symmetric(vertical:25.0,horizontal: 4.0)
                   ),
                 ]
@@ -211,7 +211,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void syncGroups() async{
 
   }
-  void deleteInvalidEntries() async{
+  void fixDB() async{
 
   }
 }
