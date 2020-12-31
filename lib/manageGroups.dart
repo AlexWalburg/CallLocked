@@ -48,8 +48,17 @@ class ManageGroupsPageState extends State<ManageGroupsPage>{
       });
     }
   }
-  void search(){
-
+  //TODO add in a search functionality
+  Future<void> search(String searchTerm) async {
+    var _groups = await databaseStuff.getGroups();
+    for(var group in _groups){
+      if(!group["name"].toLowerCase().contains(searchTerm)){
+        _groups.remove(group);
+      }
+    }
+    setState(() {
+      groups = _groups;
+    });
   }
   Widget addGroupDialogMaker(){
     return Container(
@@ -89,7 +98,7 @@ class ManageGroupsPageState extends State<ManageGroupsPage>{
         title: Text("Manage Groups"),
         actions: [
           ElevatedButton(
-              onPressed: search,
+              // onPressed: search,
               child: Icon(Icons.search)
           ),
           ElevatedButton(

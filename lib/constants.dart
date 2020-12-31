@@ -12,99 +12,155 @@ import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:share/share.dart';
 
-class Constants{
+class Constants {
   static String address = "http://192.168.4.54:5000";
-  static void sharePng(Uint8List pngBytes) async{
+  static void sharePng(Uint8List pngBytes) async {
     var file = new File(await getDatabasesPath() + "/CallLockTemp.png");
     await file.writeAsBytes(pngBytes);
     print(file.path);
-    Share.shareFiles([file.path],mimeTypes: ['image/png']);
+    Share.shareFiles([file.path], mimeTypes: ['image/png']);
   }
-  static void registerListing(int listingNum, String encrytptedNumber) async{
-    var response = await http.post(address + "/addNumber", body:
-    {
-      "listingId" : listingNum.toString(),
-      "encryptedPhoneNumber" : encrytptedNumber
+
+  static void registerListing(int listingNum, String encrytptedNumber) async {
+    var response = await http.post(address + "/addNumber", body: {
+      "listingId": listingNum.toString(),
+      "encryptedPhoneNumber": encrytptedNumber
     });
   }
-  static Future<Group> pullGroup(String idString) async{
+
+  static Future<Group> pullGroup(String idString) async {
     GroupMaker gm = GroupMaker();
     await gm.open();
-    String pem = idString.substring(idString.indexOf("\n")+1);
-    int listingNum = int.parse(idString.substring(0,idString.indexOf("\n")));
+    String pem = idString.substring(idString.indexOf("\n") + 1);
+    int listingNum = int.parse(idString.substring(0, idString.indexOf("\n")));
     // check if the group has already been added
     Group g = await gm.getGroup(listingNum);
-    if(g!=null){
+    if (g != null) {
       await gm.close();
       return g;
     }
-    String name = jsonDecode((await http.post(address + '/getListingName',
-      body: {
-      "listingId": listingNum
-      }
-    )).body)[0];
-    var group = Group(listingNum,"",name,pem,"");
+    String name = jsonDecode((await http
+            .post(address + '/getListingName', body: {"listingId": listingNum}))
+        .body)[0];
+    var group = Group(listingNum, "", name, pem, "");
     await gm.insert(group);
-    syncNums(listingNum); //this sets the timestamp  appropriately and pulls numbers
+    syncNums(
+        listingNum); //this sets the timestamp  appropriately and pulls numbers
     await gm.close();
     return group;
   }
+
   static void registerGroup(String groupName, bool isPublic) async {
-      //todo gen key, make api calls
-      var rsaHelper = new RsaKeyHelper();
-      var createKeys = rsaHelper.generateKeyPair();
-      var deleteKeys = rsaHelper.generateKeyPair();
-      String pubkey = "";
+    //todo gen key, make api calls
+    var rsaHelper = new RsaKeyHelper();
+    var createKeys = rsaHelper.generateKeyPair();
+    var deleteKeys = rsaHelper.generateKeyPair();
+    String pubkey = "";
 
-      if(isPublic){
-        pubkey = rsaHelper.encodePrivateKeyToPem(createKeys.privateKey); // I swear this makes more sense in context
-      }
-      var response = await http.post(address + "/makeListing",
-          body: {
-                  'key' : rsaHelper.encodePublicKeyToPem(createKeys.publicKey),
-                   'delKey' : rsaHelper.encodePrivateKeyToPem(deleteKeys.privateKey),
-                    'name' : groupName,
-                    'pubkey' : pubkey
-                });
-      var listing = jsonDecode(response.body);
-      String deleteKey = rsaHelper.encodePublicKeyToPem(deleteKeys.publicKey);
-      String privkey = rsaHelper.encodePrivateKeyToPem(createKeys.privateKey);
-      pubkey = rsaHelper.encodePublicKeyToPem(createKeys.publicKey);
-      Group newGroup = new Group(listing,deleteKey,groupName,privkey,pubkey);
-      GroupMaker maker = new GroupMaker();
-      await maker.open();
-      await maker.insert(newGroup);
-
+    if (isPublic) {
+      pubkey = rsaHelper.encodePrivateKeyToPem(
+          createKeys.privateKey); // I swear this makes more sense in context
+    }
+    var response = await http.post(address + "/makeListing", body: {
+      'key': rsaHelper.encodePublicKeyToPem(createKeys.publicKey),
+      'delKey': rsaHelper.encodePrivateKeyToPem(deleteKeys.privateKey),
+      'name': groupName,
+      'pubkey': pubkey
+    });
+    var listing = jsonDecode(response.body);
+    String deleteKey = rsaHelper.encodePublicKeyToPem(deleteKeys.publicKey);
+    String privkey = rsaHelper.encodePrivateKeyToPem(createKeys.privateKey);
+    pubkey = rsaHelper.encodePublicKeyToPem(createKeys.publicKey);
+    Group newGroup = new Group(listing, deleteKey, groupName, privkey, pubkey);
+    GroupMaker maker = new GroupMaker();
+    await maker.open();
+    await maker.insert(newGroup);
   }
-  static void syncNums(int id) async{
+
+  static void batchSyncNums() async {
+    var results = Map<String, int>();
+    for (var row in await getGroups()) {
+      //jsonEncode fails badly on maps w/o string keys, no idea why this isn't implemented already
+      results[row["id"].toString()] = row["timestamp"];
+    }
+    var changes = jsonDecode((await http.post(
+            address + "/batchGetListingAfterTime",
+            body: {"updates": jsonEncode(results)}))
+        .body);
+    var gm = new GroupMaker();
+    await gm.open();
+    var decryptor = RsaKeyHelper();
+      if (!await Permission.contacts.isGranted && !await Permission.contacts.request().isGranted){
+        return;
+      }
+      changes.forEach((num, encryptedPhoneNums) async {
+      if (encryptedPhoneNums.isNotEmpty) {
+        Group group = await gm.getGroup(int.parse(num));
+        var privKey = decryptor.parsePrivateKeyFromPem(group.privkey);
+        for (var encryptedNumber in encryptedPhoneNums) {
+          var decryptedNumber = decryptor.decrypt(encryptedNumber[0], privKey);
+          var contactsWithNum = await ContactsService.getContactsForPhone(
+              decryptedNumber,
+              withThumbnails: false);
+          if (contactsWithNum.isEmpty) {
+            ContactsService.addContact(new Contact(
+                prefix: group.name + ":",
+                givenName: " ",
+                familyName: " ",
+                phones: [new Item(label: "home", value: decryptedNumber)]));
+          } else {
+            for (var contact in contactsWithNum) {
+              if (contact.prefix != null) {
+                if (!contact.prefix.contains(group.name + ": ")) {
+                  contact.prefix = group.name + ": " + contact.prefix;
+                }
+              } else {
+                contact.prefix = group.name + ": ";
+              }
+              ContactsService.updateContact(contact);
+            }
+          }
+        }
+        group.timestamp = DateTime.now().millisecondsSinceEpoch;
+        gm.update(group); //get that updated asap
+      }
+    });
+  }
+
+  static void syncNums(int id) async {
     var gm = new GroupMaker();
     await gm.open();
     var group = await gm.getGroup(id);
-    var response = await http.post(address + "/getListingAfterTime",
-    body: {
-     "listingId": id.toString(),
-      "timestamp" : group.timestamp.toString()
+    var response = await http.post(address + "/getListingAfterTime", body: {
+      "listingId": id.toString(),
+      "timestamp": group.timestamp.toString()
     });
     group.timestamp = DateTime.now().millisecondsSinceEpoch;
     gm.update(group); //get that updated asap
     var numbers = jsonDecode(response.body);
     var decryptor = RsaKeyHelper();
     var privKey = decryptor.parsePrivateKeyFromPem(group.privkey);
-    if (await Permission.contacts.isGranted || await Permission.contacts
-        .request()
-        .isGranted) { //we use the ||'s feature to automatically skip if the first one returns true to branch automatically
-      for(var encryptedNumber in numbers){
+    if (await Permission.contacts.isGranted ||
+        await Permission.contacts.request().isGranted) {
+      //we use the ||'s feature to automatically skip if the first one returns true to branch automatically
+      for (var encryptedNumber in numbers) {
         var decryptedNumber = decryptor.decrypt(encryptedNumber[0], privKey);
-        var contactsWithNum = await ContactsService.getContactsForPhone(decryptedNumber, withThumbnails: false);
-        if(contactsWithNum.isEmpty) {
-          ContactsService.addContact(new Contact(prefix: group.name + ":", givenName: " ", familyName: " ", phones: [new Item(label: "home",value: decryptedNumber)]));
+        var contactsWithNum = await ContactsService.getContactsForPhone(
+            decryptedNumber,
+            withThumbnails: false);
+        if (contactsWithNum.isEmpty) {
+          ContactsService.addContact(new Contact(
+              prefix: group.name + ":",
+              givenName: " ",
+              familyName: " ",
+              phones: [new Item(label: "home", value: decryptedNumber)]));
         } else {
-          for(var contact in contactsWithNum){
-            if(contact.prefix!=null){
-              if(!contact.prefix.contains(group.name + ": ")) {
+          for (var contact in contactsWithNum) {
+            if (contact.prefix != null) {
+              if (!contact.prefix.contains(group.name + ": ")) {
                 contact.prefix = group.name + ": " + contact.prefix;
               }
-            } else{
+            } else {
               contact.prefix = group.name + ": ";
             }
             ContactsService.updateContact(contact);
@@ -114,7 +170,7 @@ class Constants{
     }
   }
 
-  static void hardSyncNums(int id) async{
+  static void hardSyncNums(int id) async {
     GroupMaker gm = GroupMaker();
     await gm.open();
     var group = await gm.getGroup(id);
@@ -122,21 +178,27 @@ class Constants{
     var lm = ListingMaker();
     await lm.open();
     var maps = await lm.getListings(id);
-    if (await Permission.contacts.isGranted || await Permission.contacts
-        .request()
-        .isGranted) { //we use the ||'s feature to automatically skip if the first one returns true to branch automatically
-      for(var map in maps){
+    if (await Permission.contacts.isGranted ||
+        await Permission.contacts.request().isGranted) {
+      //we use the ||'s feature to automatically skip if the first one returns true to branch automatically
+      for (var map in maps) {
         var decryptedNumber = map.phoneNum;
-        var contactsWithNum = await ContactsService.getContactsForPhone(decryptedNumber, withThumbnails: false);
-        if(contactsWithNum.isEmpty) {
-          ContactsService.addContact(new Contact(prefix: group.name + ":", givenName: " ", familyName: " ", phones: [new Item(label: "home",value: decryptedNumber)]));
+        var contactsWithNum = await ContactsService.getContactsForPhone(
+            decryptedNumber,
+            withThumbnails: false);
+        if (contactsWithNum.isEmpty) {
+          ContactsService.addContact(new Contact(
+              prefix: group.name + ":",
+              givenName: " ",
+              familyName: " ",
+              phones: [new Item(label: "home", value: decryptedNumber)]));
         } else {
-          for(var contact in contactsWithNum){
-            if(contact.prefix!=null){
-              if(!contact.prefix.contains(group.name + ": ")) {
+          for (var contact in contactsWithNum) {
+            if (contact.prefix != null) {
+              if (!contact.prefix.contains(group.name + ": ")) {
                 contact.prefix = group.name + ": " + contact.prefix;
               }
-            } else{
+            } else {
               contact.prefix = group.name + ": ";
             }
             ContactsService.updateContact(contact);
@@ -148,6 +210,7 @@ class Constants{
     syncNums(id);
   }
 }
+
 //taken from https://gist.github.com/proteye/982d9991922276ccfb011dfc55443d74
 // major props to them for doing encryption work i do not understand
 List<int> decodePEM(String pem) {
@@ -190,7 +253,8 @@ List<int> decodePEM(String pem) {
 
 class RsaKeyHelper {
   AsymmetricKeyPair<PublicKey, PrivateKey> generateKeyPair() {
-    var keyParams = new RSAKeyGeneratorParameters(BigInt.parse('65537'), 2048, 12);
+    var keyParams =
+        new RSAKeyGeneratorParameters(BigInt.parse('65537'), 2048, 12);
 
     var secureRandom = new FortunaRandom();
     var random = new Random.secure();
@@ -209,7 +273,8 @@ class RsaKeyHelper {
   String encrypt(String plaintext, RSAPublicKey publicKey) {
     var cipher = OAEPEncoding(RSAEngine())
       ..init(true, new PublicKeyParameter<RSAPublicKey>(publicKey));
-    var cipherText = cipher.process(new Uint8List.fromList(plaintext.codeUnits));
+    var cipherText =
+        cipher.process(new Uint8List.fromList(plaintext.codeUnits));
 
     return base64.encode(cipherText);
   }
@@ -233,10 +298,8 @@ class RsaKeyHelper {
     var modulus = publicKeySeq.elements[0] as ASN1Integer;
     var exponent = publicKeySeq.elements[1] as ASN1Integer;
 
-    RSAPublicKey rsaPublicKey = RSAPublicKey(
-        modulus.valueAsBigInteger,
-        exponent.valueAsBigInteger
-    );
+    RSAPublicKey rsaPublicKey =
+        RSAPublicKey(modulus.valueAsBigInteger, exponent.valueAsBigInteger);
 
     return rsaPublicKey;
   }
@@ -266,23 +329,25 @@ class RsaKeyHelper {
         modulus.valueAsBigInteger,
         privateExponent.valueAsBigInteger,
         p.valueAsBigInteger,
-        q.valueAsBigInteger
-    );
+        q.valueAsBigInteger);
 
     return rsaPrivateKey;
   }
 
   encodePublicKeyToPem(RSAPublicKey publicKey) {
     var algorithmSeq = new ASN1Sequence();
-    var algorithmAsn1Obj = new ASN1Object.fromBytes(Uint8List.fromList([0x6, 0x9, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0xd, 0x1, 0x1, 0x1]));
-    var paramsAsn1Obj = new ASN1Object.fromBytes(Uint8List.fromList([0x5, 0x0]));
+    var algorithmAsn1Obj = new ASN1Object.fromBytes(Uint8List.fromList(
+        [0x6, 0x9, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0xd, 0x1, 0x1, 0x1]));
+    var paramsAsn1Obj =
+        new ASN1Object.fromBytes(Uint8List.fromList([0x5, 0x0]));
     algorithmSeq.add(algorithmAsn1Obj);
     algorithmSeq.add(paramsAsn1Obj);
 
     var publicKeySeq = new ASN1Sequence();
     publicKeySeq.add(ASN1Integer(publicKey.modulus));
     publicKeySeq.add(ASN1Integer(publicKey.exponent));
-    var publicKeySeqBitString = new ASN1BitString(Uint8List.fromList(publicKeySeq.encodedBytes));
+    var publicKeySeqBitString =
+        new ASN1BitString(Uint8List.fromList(publicKeySeq.encodedBytes));
 
     var topLevelSeq = new ASN1Sequence();
     topLevelSeq.add(algorithmSeq);
@@ -296,8 +361,10 @@ class RsaKeyHelper {
     var version = ASN1Integer(BigInt.from(0));
 
     var algorithmSeq = new ASN1Sequence();
-    var algorithmAsn1Obj = new ASN1Object.fromBytes(Uint8List.fromList([0x6, 0x9, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0xd, 0x1, 0x1, 0x1]));
-    var paramsAsn1Obj = new ASN1Object.fromBytes(Uint8List.fromList([0x5, 0x0]));
+    var algorithmAsn1Obj = new ASN1Object.fromBytes(Uint8List.fromList(
+        [0x6, 0x9, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0xd, 0x1, 0x1, 0x1]));
+    var paramsAsn1Obj =
+        new ASN1Object.fromBytes(Uint8List.fromList([0x5, 0x0]));
     algorithmSeq.add(algorithmAsn1Obj);
     algorithmSeq.add(paramsAsn1Obj);
 
@@ -323,7 +390,8 @@ class RsaKeyHelper {
     privateKeySeq.add(exp1);
     privateKeySeq.add(exp2);
     privateKeySeq.add(co);
-    var publicKeySeqOctetString = new ASN1OctetString(Uint8List.fromList(privateKeySeq.encodedBytes));
+    var publicKeySeqOctetString =
+        new ASN1OctetString(Uint8List.fromList(privateKeySeq.encodedBytes));
 
     var topLevelSeq = new ASN1Sequence();
     topLevelSeq.add(version);

@@ -31,6 +31,7 @@ dependencies:
   qr_flutter: '>=3.2.0 <4.0.0'
   image_picker: '>=0.6.7 < 1.0.0'
   qrscan: ^0.2.17
+  workmanager: ^0.2.3
   flutter:
     sdk: flutter
 

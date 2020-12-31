@@ -6,7 +6,16 @@ import 'package:flutter/material.dart';
 import 'package:contacts_service/contacts_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:CallLock/databaseStuff.dart';
+import 'package:workmanager/workmanager.dart';
+
+import 'constants.dart';
 const buttonStyle = TextStyle(fontSize: 26);
+void callbackDispatcher(){
+  Workmanager.executeTask((taskName, inputData) async {
+    await Constants.batchSyncNums();
+    return Future.value(true);
+  });
+}
 void main() {
   runApp(MyApp());
 }
@@ -87,6 +96,9 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState(){
     super.initState();
     createDB();
+    Constants.batchSyncNums();
+    Workmanager.initialize(callbackDispatcher, isInDebugMode: true);
+    //Workmanager.registerPeriodicTask("test", "test", frequency: Duration(minutes: 15));
   }
   @override
   Widget build(BuildContext context) {
