@@ -96,7 +96,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState(){
     super.initState();
     createDB();
-    Workmanager.initialize(callbackDispatcher, isInDebugMode: true);
+    Workmanager.initialize(callbackDispatcher, isInDebugMode: false);
     Workmanager.registerPeriodicTask("test", "test", frequency: Duration(minutes: 15));
   }
   @override
