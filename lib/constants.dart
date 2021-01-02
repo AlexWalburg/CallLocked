@@ -17,14 +17,14 @@ class Constants {
   static void sharePng(Uint8List pngBytes) async {
     var file = new File(await getDatabasesPath() + "/CallLockTemp.png");
     await file.writeAsBytes(pngBytes);
-    print(file.path);
     Share.shareFiles([file.path], mimeTypes: ['image/png']);
   }
 
-  static void registerListing(int listingNum, String encrytptedNumber) async {
-    var response = await http.post(address + "/addNumber", body: {
+  static void registerListing(int listingNum, String encryptedNumber, String encryptedName) async {
+    await http.post(address + "/addNumber", body: {
       "listingId": listingNum.toString(),
-      "encryptedPhoneNumber": encrytptedNumber
+      "encryptedPhoneNumber": encryptedNumber,
+      "encryptedName" : encryptedName
     });
   }
 
@@ -44,8 +44,7 @@ class Constants {
         .body)[0];
     var group = Group(listingNum, "", name, pem, "");
     await gm.insert(group);
-    syncNums(
-        listingNum); //this sets the timestamp  appropriately and pulls numbers
+    syncNums(listingNum); //this sets the timestamp  appropriately and pulls numbers
     await gm.close();
     return group;
   }
@@ -87,8 +86,11 @@ class Constants {
             address + "/batchGetListingAfterTime",
             body: {"updates": jsonEncode(results)}))
         .body);
+    print(changes);
     var gm = new GroupMaker();
     await gm.open();
+    var lm = new ListingMaker();
+    await lm.open();
     var decryptor = RsaKeyHelper();
       if (!await Permission.contacts.isGranted && !await Permission.contacts.request().isGranted){
         return;
@@ -99,13 +101,15 @@ class Constants {
         var privKey = decryptor.parsePrivateKeyFromPem(group.privkey);
         for (var encryptedNumber in encryptedPhoneNums) {
           var decryptedNumber = decryptor.decrypt(encryptedNumber[0], privKey);
+          var decryptedName = decryptor.decrypt(encryptedNumber[1],privKey);
+          lm.insert(Listing(group.id,decryptedNumber,decryptedName));
           var contactsWithNum = await ContactsService.getContactsForPhone(
               decryptedNumber,
               withThumbnails: false);
           if (contactsWithNum.isEmpty) {
             ContactsService.addContact(new Contact(
                 prefix: group.name + ":",
-                givenName: " ",
+                givenName: decryptedName,
                 familyName: " ",
                 phones: [new Item(label: "home", value: decryptedNumber)]));
           } else {
@@ -130,6 +134,8 @@ class Constants {
   static void syncNums(int id) async {
     var gm = new GroupMaker();
     await gm.open();
+    var lm = new ListingMaker();
+    await lm.open();
     var group = await gm.getGroup(id);
     var response = await http.post(address + "/getListingAfterTime", body: {
       "listingId": id.toString(),
@@ -145,13 +151,15 @@ class Constants {
       //we use the ||'s feature to automatically skip if the first one returns true to branch automatically
       for (var encryptedNumber in numbers) {
         var decryptedNumber = decryptor.decrypt(encryptedNumber[0], privKey);
+        var decryptedName = decryptor.decrypt(encryptedNumber[1],privKey);
+        lm.insert(Listing(group.id,decryptedNumber,decryptedName));
         var contactsWithNum = await ContactsService.getContactsForPhone(
             decryptedNumber,
             withThumbnails: false);
         if (contactsWithNum.isEmpty) {
           ContactsService.addContact(new Contact(
               prefix: group.name + ":",
-              givenName: " ",
+              givenName: decryptedName,
               familyName: " ",
               phones: [new Item(label: "home", value: decryptedNumber)]));
         } else {
@@ -189,7 +197,7 @@ class Constants {
         if (contactsWithNum.isEmpty) {
           ContactsService.addContact(new Contact(
               prefix: group.name + ":",
-              givenName: " ",
+              givenName: map.name,
               familyName: " ",
               phones: [new Item(label: "home", value: decryptedNumber)]));
         } else {

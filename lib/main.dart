@@ -96,9 +96,8 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState(){
     super.initState();
     createDB();
-    Constants.batchSyncNums();
     Workmanager.initialize(callbackDispatcher, isInDebugMode: true);
-    //Workmanager.registerPeriodicTask("test", "test", frequency: Duration(minutes: 15));
+    Workmanager.registerPeriodicTask("test", "test", frequency: Duration(minutes: 15));
   }
   @override
   Widget build(BuildContext context) {
@@ -269,7 +268,7 @@ class _MyHomePageState extends State<MyHomePage> {
     Navigator.pushReplacement(context,navigate(index));
   }
   void syncGroups() async{
-
+    Constants.batchSyncNums();
   }
   void addGroupPopUpCreator() async{
 

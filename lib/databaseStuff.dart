@@ -74,6 +74,7 @@ void addGroupViaImage(BuildContext context) async{
 }
 void addNumberViaText(BuildContext context) async{
   String numToEncrypt = "";
+  String nameToEncrypt = "";
   String code = "";
   void addImageForReal() async{
     String pem = code.substring(code.indexOf("\n")+1);
@@ -81,11 +82,12 @@ void addNumberViaText(BuildContext context) async{
     var encoder = constants.RsaKeyHelper();
     var pubKey = encoder.parsePublicKeyFromPem(pem);
     var encodedNum = encoder.encrypt(numToEncrypt, pubKey);
+    var encodedName = encoder.encrypt(nameToEncrypt, pubKey);
     var listingMaker = ListingMaker();
     var listing = Listing.fromMap({"id": listingNum,"phoneNum" : numToEncrypt});
     await listingMaker.open();
     listingMaker.insert(listing);
-    constants.Constants.registerListing(listingNum, encodedNum);
+    constants.Constants.registerListing(listingNum, encodedNum,encodedName);
   }
   showDialog(
       context: context,
@@ -97,6 +99,12 @@ void addNumberViaText(BuildContext context) async{
             keyboardType: TextInputType.phone,
             decoration: InputDecoration(hintText: "Phone Number"),
             onChanged: (String input){numToEncrypt=input;},
+          ),
+          TextField(
+            keyboardType: TextInputType.name,
+            onChanged: (String input){nameToEncrypt=input;},
+            decoration: InputDecoration(hintText: "Name"),
+            style: TextStyle(),
           ),
           TextField(
             keyboardType: TextInputType.multiline,
@@ -115,6 +123,7 @@ void addNumberViaText(BuildContext context) async{
 
 void addNumberViaCamera(BuildContext context) async{
   String numToEncrypt = "";
+  String nameToEncrypt = "";
   void addImageForReal() async{
     String code = await scanner.scan();
 
@@ -123,11 +132,12 @@ void addNumberViaCamera(BuildContext context) async{
     var encoder = constants.RsaKeyHelper();
     var pubKey = encoder.parsePublicKeyFromPem(pem);
     var encodedNum = encoder.encrypt(numToEncrypt, pubKey);
+    var encodedName = encoder.encrypt(nameToEncrypt, pubKey);
     var listingMaker = ListingMaker();
     var listing = Listing.fromMap({"id": listingNum,"phoneNum" : numToEncrypt});
     await listingMaker.open();
     listingMaker.insert(listing);
-    constants.Constants.registerListing(listingNum, encodedNum);
+    constants.Constants.registerListing(listingNum, encodedNum,encodedName);
   }
   showDialog(
       context: context,
@@ -140,6 +150,12 @@ void addNumberViaCamera(BuildContext context) async{
             onChanged: (String input){numToEncrypt=input;},
             decoration: InputDecoration(hintText: "Phone Number"),
           ),
+          TextField(
+            keyboardType: TextInputType.name,
+            onChanged: (String input){nameToEncrypt=input;},
+            decoration: InputDecoration(hintText: "Name"),
+            style: TextStyle(),
+          ),
           RaisedButton(
             child: Text("Scan code and register number"),
             onPressed: addImageForReal,
@@ -150,6 +166,7 @@ void addNumberViaCamera(BuildContext context) async{
 }
 void addNumberViaImage(BuildContext context) async{
   String numToEncrypt = "";
+  String nameToEncrypt = "";
   void addImageForReal() async{
     PickedFile image = await ImagePicker().getImage(source: ImageSource.gallery);
     if(image==null){
@@ -161,11 +178,12 @@ void addNumberViaImage(BuildContext context) async{
     var encoder = constants.RsaKeyHelper();
     var pubKey = encoder.parsePublicKeyFromPem(pem);
     var encodedNum = encoder.encrypt(numToEncrypt, pubKey);
+    var encodedName = encoder.encrypt(nameToEncrypt,pubKey);
     var listingMaker = ListingMaker();
     var listing = Listing.fromMap({"id": listingNum,"phoneNum" : numToEncrypt});
     await listingMaker.open();
     listingMaker.insert(listing);
-    constants.Constants.registerListing(listingNum, encodedNum);
+    constants.Constants.registerListing(listingNum, encodedNum,encodedName);
   }
   showDialog(
       context: context,
@@ -177,6 +195,12 @@ void addNumberViaImage(BuildContext context) async{
             keyboardType: TextInputType.phone,
             onChanged: (String input){numToEncrypt=input;},
             decoration: InputDecoration(hintText: "Phone Number"),
+            style: TextStyle(),
+          ),
+          TextField(
+            keyboardType: TextInputType.name,
+            onChanged: (String input){nameToEncrypt=input;},
+            decoration: InputDecoration(hintText: "Name"),
             style: TextStyle(),
           ),
           RaisedButton(
@@ -198,7 +222,7 @@ void createDB() async{
   String path = join(await getDatabasesPath(),"dataBase.db");
   Database db = await openDatabase(path, version: 1,
   onCreate: (Database db, int version) async{
-    await db.execute('Create table listings (id integer, phoneNum text)');
+    await db.execute('Create table listings (id integer, phoneNum text, name text)');
     await db.execute('Create table groups (id integer, deleteKey text, name text, privkey text, pubkey text, timestamp integer)');
   });
 }
@@ -209,15 +233,23 @@ Future<List<Map<String,dynamic>>> getGroups() async{
 class Listing{
   int id;
   String phoneNum;
+  String name;
   Map<String, dynamic> toMap(){
     return <String,dynamic>{
       "id": id,
-      "phoneNum": phoneNum
+      "phoneNum": phoneNum,
+      "name" : name
     };
+  }
+  Listing(int id, String phoneNum, String name){
+    this.id = id;
+    this.phoneNum = phoneNum;
+    this.name = name;
   }
   Listing.fromMap(Map<String,dynamic> map){
     id = map["id"];
     phoneNum = map["phoneNum"];
+    name = map["name"];
   }
 
 }
