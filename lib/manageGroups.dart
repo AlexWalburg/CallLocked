@@ -17,10 +17,15 @@ class ManageGroupsPage extends StatefulWidget{
   ManageGroupsPageState createState() => ManageGroupsPageState();
 }
 class ManageGroupsPageState extends State<ManageGroupsPage>{
+  final TextEditingController filter = new TextEditingController();
   String groupName;
+  String searchText = "";
   bool isPublic = false;
+  Widget appBarTitle = Text("Manage Groups");
+  Icon searchIcon = new Icon(Icons.search);
   List<String> contacts;
-  List<Map<String,dynamic>> groups;
+  List<Map<String,dynamic>> groups, filteredGroups;
+
   @override
   void initState(){
     super.initState();
@@ -30,7 +35,35 @@ class ManageGroupsPageState extends State<ManageGroupsPage>{
     var _groups = await databaseStuff.getGroups();
     setState(() {
       groups = _groups;
+      filteredGroups = _groups;
     });
+  }
+  ManageGroupsPageState(){
+    filter.addListener(() {
+      if (filter.text.isEmpty) {
+        setState(() {
+          searchText = "";
+          filteredGroups = groups;
+        });
+      } else {
+        setState(() {
+          searchText = filter.text;
+        });
+      }
+    });
+  }
+  Widget listBuilder(){
+    if(searchText!=""){
+      filteredGroups = new List();
+      for(var group in groups){
+        if(group["name"].toLowerCase().contains(searchText)){
+          filteredGroups.add(group);
+        }
+      }
+    } else {
+      filteredGroups = groups;
+    }
+    return filteredGroups != null ? ListView.builder(itemCount: filteredGroups.length, itemBuilder: (BuildContext context, int i){return GroupPanel(group: databaseStuff.Group.fromMap(filteredGroups[i]));}) : Center(child: CircularProgressIndicator());
   }
   Future<void> loadData() async {
     List<String> _contacts = [];
@@ -49,15 +82,24 @@ class ManageGroupsPageState extends State<ManageGroupsPage>{
     }
   }
   //TODO add in a search functionality
-  Future<void> search(String searchTerm) async {
-    var _groups = await databaseStuff.getGroups();
-    for(var group in _groups){
-      if(!group["name"].toLowerCase().contains(searchTerm)){
-        _groups.remove(group);
-      }
-    }
+  void search() {
     setState(() {
-      groups = _groups;
+      if (this.searchIcon.icon == Icons.search) {
+        this.searchIcon = new Icon(Icons.close);
+        this.appBarTitle = new TextField(
+          controller: filter,
+          autofocus: true,
+          decoration: new InputDecoration(
+              prefixIcon: new Icon(Icons.search),
+              hintText: 'Search...',
+          ),
+        );
+      } else {
+        this.searchIcon = new Icon(Icons.search);
+        this.appBarTitle = new Text('Search Example');
+        filteredGroups = groups;
+        filter.clear();
+      }
     });
   }
   Widget addGroupDialogMaker(){
@@ -95,11 +137,11 @@ class ManageGroupsPageState extends State<ManageGroupsPage>{
     // TODO: implement build
     return Scaffold(
       appBar: AppBar(
-        title: Text("Manage Groups"),
+        title: appBarTitle,
         actions: [
           ElevatedButton(
-              // onPressed: search,
-              child: Icon(Icons.search)
+              onPressed: search,
+              child: searchIcon
           ),
           ElevatedButton(
               onPressed: () {
@@ -136,7 +178,7 @@ class ManageGroupsPageState extends State<ManageGroupsPage>{
           )
         ],
       ),
-      body:  groups != null ? ListView.builder(itemCount: groups.length, itemBuilder: (BuildContext context, int i){return GroupPanel(group: databaseStuff.Group.fromMap(groups[i]));}) : Center(child: CircularProgressIndicator()),
+      body:  listBuilder(),
       bottomNavigationBar: BottomNavigationBar(
           currentIndex:1, //changes for each page, i hate the code reuse too
           selectedItemColor:Colors.amber,
