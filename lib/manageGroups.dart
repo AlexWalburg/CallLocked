@@ -351,7 +351,6 @@ class GroupPanel extends StatelessWidget{
   void removeGroup() async{
     var manager = databaseStuff.GroupMaker();
     await manager.open();
-    print(group.id);
     manager.delete(group.id);
   }
 
