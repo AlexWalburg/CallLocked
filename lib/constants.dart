@@ -27,7 +27,18 @@ class Constants {
       "encryptedName" : encryptedName
     });
   }
-
+  static Future<List<dynamic>> searchPublicGroups(String searchText) async{
+    var response = jsonDecode(
+        (await http.post(
+            address + "/searchPublicListings",
+          body: {
+              "searchText": searchText
+          }
+        )
+    ).body);
+    print(response);
+    return response;
+  }
   static Future<Group> pullGroup(String idString) async {
     GroupMaker gm = GroupMaker();
     await gm.open();
@@ -40,7 +51,7 @@ class Constants {
       return g;
     }
     String name = jsonDecode((await http
-            .post(address + '/getListingName', body: {"listingId": listingNum}))
+            .post(address + '/getListingName', body: {"listingId": listingNum.toString()}))
         .body)[0];
     var group = Group(listingNum, "", name, pem, "");
     await gm.insert(group);
