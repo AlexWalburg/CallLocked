@@ -26,12 +26,14 @@ class BrowseGroupsPageState extends State<BrowseGroupsPage>{
     });
   }
   void search() async{
-     Constants.searchPublicGroups(searchText).then(
-             (value){
-               setState(() {
-                groups = value;
-               });
-             });
+    if(searchText.isNotEmpty) {
+      Constants.searchPublicGroups(searchText).then(
+              (value) {
+            setState(() {
+              groups = value;
+            });
+          });
+    }
   }
   Widget listBuilder(){
     return groups != null ?
