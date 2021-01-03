@@ -214,8 +214,8 @@ void addNumberViaImage(BuildContext context) async{
 void clearDB() async{
   Database db = await openDatabase(join(await getDatabasesPath(),"dataBase.db"));
   await db.transaction((txn) async {
-    await txn.execute("drop table listings");
-    await txn.execute("drop table groups");
+    await txn.execute("DELETE FROM listings");
+    await txn.execute("DELETE FROM groups");
   });
 }
 void createDB() async{
