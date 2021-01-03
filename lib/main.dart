@@ -7,6 +7,7 @@ import 'package:contacts_service/contacts_service.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:CallLock/databaseStuff.dart';
 import 'package:workmanager/workmanager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'constants.dart';
 const buttonStyle = TextStyle(fontSize: 26);
@@ -96,8 +97,13 @@ class _MyHomePageState extends State<MyHomePage> {
   void initState(){
     super.initState();
     createDB();
-    Workmanager.initialize(callbackDispatcher, isInDebugMode: false);
-    Workmanager.registerPeriodicTask("test", "test", frequency: Duration(minutes: 15));
+    SharedPreferences.getInstance().then((value){
+      if(value.getBool("doBackgroundSync") ?? true) {
+        Workmanager.initialize(callbackDispatcher, isInDebugMode: false);
+        Workmanager.registerPeriodicTask(
+            "sync", "sync", frequency: Duration(minutes: 15));
+      }
+    });
   }
   @override
   Widget build(BuildContext context) {

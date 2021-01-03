@@ -32,6 +32,7 @@ dependencies:
   image_picker: '>=0.6.7 < 1.0.0'
   qrscan: ^0.2.17
   workmanager: ^0.2.3
+  shared_preferences: '>=0.5.0+0 <2.0.0'
   flutter:
     sdk: flutter
 

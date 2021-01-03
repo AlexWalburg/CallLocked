@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'databaseStuff.dart' as databaseStuff;
 
 import 'navigator.dart';
@@ -10,11 +10,14 @@ class SettingsPage extends StatefulWidget{
   SettingsPageState createState() => SettingsPageState();
 }
 class SettingsPageState extends State<SettingsPage>{
-  void changeServerIP(String ip){
-
-  }
-  void changeResetTime(String min){
-
+  Future<SharedPreferences> _prefs = SharedPreferences.getInstance();
+  bool autoSyncOn = true;
+  SettingsPageState(){
+    _prefs.then((value){
+      setState(() {
+        autoSyncOn = value.getBool("doBackgroundSync") ?? true;
+      });
+    });
   }
   void reset(){
     databaseStuff.clearDB();
@@ -31,14 +34,21 @@ class SettingsPageState extends State<SettingsPage>{
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: <Widget>[
-              TextField(
-                decoration: InputDecoration(hintText: "Server IP"),
-                onSubmitted: changeServerIP,
-              ),
-              TextField(
-                decoration: InputDecoration(hintText: "Reset every Blank minutes",),
-                keyboardType: TextInputType.number,
-                onSubmitted: changeResetTime,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  Expanded(
+                    child: Text("Sync periodically in the background(requires a restart):")
+                  ),
+                  Switch(
+                      value: autoSyncOn,
+                      onChanged: (bool){
+                        _prefs.then((value) => value.setBool("doBackgroundSync", bool));
+                        setState(() {
+                          autoSyncOn = bool;
+                        });
+                      })
+                ],
               ),
               RaisedButton(
                   child: Text("Reset"),
