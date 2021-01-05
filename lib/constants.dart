@@ -50,9 +50,19 @@ class Constants {
       await gm.close();
       return g;
     }
-    String name = jsonDecode((await http
+    print(listingNum.toString());
+    var encryptedName = jsonDecode((await http
             .post(address + '/getListingName', body: {"listingId": listingNum.toString()}))
-        .body)[0];
+        .body)[0].toString();
+    var decrypter = new RsaKeyHelper();
+    print(encryptedName);
+    String name = encryptedName;
+    try {
+      //if the listing isn't ciphertext, itll fail and as a result it won't get changed
+     name = decrypter.decrypt(encryptedName, decrypter.parsePrivateKeyFromPem(pem));
+    } catch(e, i){
+
+    }
     var group = Group(listingNum, "", name, pem, "");
     await gm.insert(group);
     syncNums(listingNum); //this sets the timestamp  appropriately and pulls numbers
@@ -66,15 +76,17 @@ class Constants {
     var createKeys = rsaHelper.generateKeyPair();
     var deleteKeys = rsaHelper.generateKeyPair();
     String pubkey = "";
-
+    var name = groupName;
     if (isPublic) {
       pubkey = rsaHelper.encodePrivateKeyToPem(
           createKeys.privateKey); // I swear this makes more sense in context
+    } else{
+      name = rsaHelper.encrypt(groupName, createKeys.publicKey);
     }
     var response = await http.post(address + "/makeListing", body: {
       'key': rsaHelper.encodePublicKeyToPem(createKeys.publicKey),
       'delKey': rsaHelper.encodePrivateKeyToPem(deleteKeys.privateKey),
-      'name': groupName,
+      'name': name,
       'pubkey': pubkey
     });
     var listing = jsonDecode(response.body);
