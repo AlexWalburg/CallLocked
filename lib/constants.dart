@@ -6,6 +6,7 @@ import 'package:pointycastle/random/fortuna_random.dart';
 import 'package:http/http.dart' as http;
 import 'package:asn1lib/asn1lib.dart';
 import 'package:CallLock/databaseStuff.dart';
+import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:io';
@@ -20,11 +21,12 @@ class Constants {
     Share.shareFiles([file.path], mimeTypes: ['image/png']);
   }
 
-  static void registerListing(int listingNum, String encryptedNumber, String encryptedName) async {
+  static void registerListing(int listingNum, String encryptedNumber, String encryptedName, String key) async {
     await http.post(address + "/addNumber", body: {
       "listingId": listingNum.toString(),
       "encryptedPhoneNumber": encryptedNumber,
-      "encryptedName" : encryptedName
+      "encryptedName" : encryptedName,
+      "key" : key
     });
   }
   static Future<List<dynamic>> searchPublicGroups(String searchText) async{
@@ -36,7 +38,6 @@ class Constants {
           }
         )
     ).body);
-    print(response);
     return response;
   }
   static Future<Group> pullGroup(String idString) async {
@@ -50,18 +51,17 @@ class Constants {
       await gm.close();
       return g;
     }
-    print(listingNum.toString());
     var encryptedName = jsonDecode((await http
             .post(address + '/getListingName', body: {"listingId": listingNum.toString()}))
-        .body)[0].toString();
+        .body);
     var decrypter = new RsaKeyHelper();
-    print(encryptedName);
-    String name = encryptedName;
-    try {
-      //if the listing isn't ciphertext, itll fail and as a result it won't get changed
-     name = decrypter.decrypt(encryptedName, decrypter.parsePrivateKeyFromPem(pem));
-    } catch(e, i){
-
+    var key = base64Decode(
+        decrypter.decrypt(
+            encryptedName[1],
+            decrypter.parsePrivateKeyFromPem(pem)));
+    String name = String.fromCharCodes(base64Decode(encryptedName[0]));
+    if(key.lengthInBytes!=0){
+      name = AesHelper.decrypt(key, encryptedName[0]);
     }
     var group = Group(listingNum, "", name, pem, "");
     await gm.insert(group);
@@ -75,16 +75,19 @@ class Constants {
     var rsaHelper = new RsaKeyHelper();
     var createKeys = rsaHelper.generateKeyPair();
     var deleteKeys = rsaHelper.generateKeyPair();
+    var key = AesHelper.deriveKey(groupName + DateTime.now().toString());
+    var encryptedKey = "";
     String pubkey = "";
     var name = groupName;
     if (isPublic) {
       pubkey = rsaHelper.encodePrivateKeyToPem(
           createKeys.privateKey); // I swear this makes more sense in context
     } else{
-      name = rsaHelper.encrypt(groupName, createKeys.publicKey);
+      name = AesHelper.encrypt(key, name);
+      encryptedKey = rsaHelper.encrypt(base64Encode(key), createKeys.publicKey);
     }
     var response = await http.post(address + "/makeListing", body: {
-      'key': rsaHelper.encodePublicKeyToPem(createKeys.publicKey),
+      'key': encryptedKey,
       'delKey': rsaHelper.encodePrivateKeyToPem(deleteKeys.privateKey),
       'name': name,
       'pubkey': pubkey
@@ -109,7 +112,6 @@ class Constants {
             address + "/batchGetListingAfterTime",
             body: {"updates": jsonEncode(results)}))
         .body);
-    print(changes);
     var gm = new GroupMaker();
     await gm.open();
     var lm = new ListingMaker();
@@ -123,8 +125,9 @@ class Constants {
         Group group = await gm.getGroup(int.parse(num));
         var privKey = decryptor.parsePrivateKeyFromPem(group.privkey);
         for (var encryptedNumber in encryptedPhoneNums) {
-          var decryptedNumber = decryptor.decrypt(encryptedNumber[0], privKey);
-          var decryptedName = decryptor.decrypt(encryptedNumber[1],privKey);
+          Uint8List key = base64Decode(decryptor.decrypt(encryptedNumber[2], privKey));
+          var decryptedNumber = AesHelper.decrypt(key, encryptedNumber[0]);
+          var decryptedName = AesHelper.decrypt(key, encryptedNumber[1]);
           lm.insert(Listing(group.id,decryptedNumber,decryptedName));
           var contactsWithNum = await ContactsService.getContactsForPhone(
               decryptedNumber,
@@ -173,8 +176,9 @@ class Constants {
         await Permission.contacts.request().isGranted) {
       //we use the ||'s feature to automatically skip if the first one returns true to branch automatically
       for (var encryptedNumber in numbers) {
-        var decryptedNumber = decryptor.decrypt(encryptedNumber[0], privKey);
-        var decryptedName = decryptor.decrypt(encryptedNumber[1],privKey);
+        Uint8List key = base64Decode(decryptor.decrypt(encryptedNumber[2], privKey));
+        var decryptedNumber = AesHelper.decrypt(key, encryptedNumber[0]);
+        var decryptedName = AesHelper.decrypt(key, encryptedNumber[1]);
         lm.insert(Listing(group.id,decryptedNumber,decryptedName));
         var contactsWithNum = await ContactsService.getContactsForPhone(
             decryptedNumber,
@@ -433,3 +437,167 @@ class RsaKeyHelper {
     return """-----BEGIN PRIVATE KEY-----\r\n$dataBase64\r\n-----END PRIVATE KEY-----""";
   }
 }
+const KEY_SIZE = 32; // 32 byte key for AES-256
+const ITERATION_COUNT = 1000;
+// from gist.github.com/ethanliew/a0f135eabaade337d62f05ec0a97d587
+class AesHelper {
+  static const CBC_MODE = 'CBC';
+  static const CFB_MODE = 'CFB';
+
+  static Uint8List deriveKey(dynamic password,
+      {String salt = '',
+        int iterationCount = ITERATION_COUNT,
+        int derivedKeyLength = KEY_SIZE}) {
+    if (password == null || password.isEmpty) {
+      throw new ArgumentError('password must not be empty');
+    }
+
+    if (password is String) {
+      password = createUint8ListFromString(password);
+    }
+
+    Uint8List saltBytes = createUint8ListFromString(salt);
+    Pbkdf2Parameters params =
+    new Pbkdf2Parameters(saltBytes, iterationCount, derivedKeyLength);
+    KeyDerivator keyDerivator =
+    new PBKDF2KeyDerivator(new HMac(new SHA256Digest(), 64));
+    keyDerivator.init(params);
+
+    return keyDerivator.process(password);
+  }
+
+  static Uint8List pad(Uint8List src, int blockSize) {
+    var pad = new PKCS7Padding();
+    pad.init(null);
+
+    int padLength = blockSize - (src.length % blockSize);
+    var out = new Uint8List(src.length + padLength)..setAll(0, src);
+    pad.addPadding(out, src.length);
+
+    return out;
+  }
+
+  static Uint8List unpad(Uint8List src) {
+    var pad = new PKCS7Padding();
+    pad.init(null);
+
+    int padLength = pad.padCount(src);
+    int len = src.length - padLength;
+
+    return new Uint8List(len)..setRange(0, len, src);
+  }
+
+  static String encrypt(Uint8List derivedKey, String plaintext,
+      {String mode = CBC_MODE}) {
+    KeyParameter keyParam = new KeyParameter(derivedKey);
+    BlockCipher aes = new AESFastEngine();
+
+    var rnd = FortunaRandom();
+    rnd.seed(keyParam);
+    Uint8List iv = rnd.nextBytes(aes.blockSize);
+
+    BlockCipher cipher;
+    ParametersWithIV params = new ParametersWithIV(keyParam, iv);
+    switch (mode) {
+      case CBC_MODE:
+        cipher = new CBCBlockCipher(aes);
+        break;
+      case CFB_MODE:
+        cipher = new CFBBlockCipher(aes, aes.blockSize);
+        break;
+      default:
+        throw new ArgumentError('incorrect value of the "mode" parameter');
+        break;
+    }
+    cipher.init(true, params);
+
+    Uint8List textBytes = createUint8ListFromString(plaintext);
+    Uint8List paddedText = pad(textBytes, aes.blockSize);
+    Uint8List cipherBytes = _processBlocks(cipher, paddedText);
+    Uint8List cipherIvBytes = new Uint8List(cipherBytes.length + iv.length)
+      ..setAll(0, iv)
+      ..setAll(iv.length, cipherBytes);
+
+    return base64.encode(cipherIvBytes);
+  }
+
+  static String decrypt(Uint8List derivedKey, String ciphertext,
+      {String mode = CBC_MODE}) {
+    KeyParameter keyParam = new KeyParameter(derivedKey);
+    BlockCipher aes = new AESFastEngine();
+
+    Uint8List cipherIvBytes = base64.decode(ciphertext);
+    Uint8List iv = new Uint8List(aes.blockSize)
+      ..setRange(0, aes.blockSize, cipherIvBytes);
+
+    BlockCipher cipher;
+    ParametersWithIV params = new ParametersWithIV(keyParam, iv);
+    switch (mode) {
+      case CBC_MODE:
+        cipher = new CBCBlockCipher(aes);
+        break;
+      case CFB_MODE:
+        cipher = new CFBBlockCipher(aes, aes.blockSize);
+        break;
+      default:
+        throw new ArgumentError('incorrect value of the "mode" parameter');
+        break;
+    }
+    cipher.init(false, params);
+
+    int cipherLen = cipherIvBytes.length - aes.blockSize;
+    Uint8List cipherBytes = new Uint8List(cipherLen)
+      ..setRange(0, cipherLen, cipherIvBytes, aes.blockSize);
+    Uint8List paddedText = _processBlocks(cipher, cipherBytes);
+    Uint8List textBytes = unpad(paddedText);
+
+    return new String.fromCharCodes(textBytes);
+  }
+
+  static Uint8List _processBlocks(BlockCipher cipher, Uint8List inp) {
+    var out = new Uint8List(inp.lengthInBytes);
+
+    for (var offset = 0; offset < inp.lengthInBytes;) {
+      var len = cipher.processBlock(inp, offset, out, offset);
+      offset += len;
+    }
+
+    return out;
+  }
+}
+Uint8List createUint8ListFromString(String s) {
+  var ret = new Uint8List(s.length);
+  for (var i = 0; i < s.length; i++) {
+    ret[i] = s.codeUnitAt(i);
+  }
+  return ret;
+}
+
+Uint8List createUint8ListFromHexString(String hex) {
+  var result = new Uint8List(hex.length ~/ 2);
+  for (var i = 0; i < hex.length; i += 2) {
+    var num = hex.substring(i, i + 2);
+    var byte = int.parse(num, radix: 16);
+    result[i ~/ 2] = byte;
+  }
+  return result;
+}
+
+Uint8List createUint8ListFromSequentialNumbers(int len) {
+  var ret = new Uint8List(len);
+  for (var i = 0; i < len; i++) {
+    ret[i] = i;
+  }
+  return ret;
+}
+
+String formatBytesAsHexString(Uint8List bytes) {
+  var result = new StringBuffer();
+  for (var i = 0; i < bytes.lengthInBytes; i++) {
+    var part = bytes[i];
+    result.write('${part < 16 ? '0' : ''}${part.toRadixString(16)}');
+  }
+  return result.toString();
+}
+
+

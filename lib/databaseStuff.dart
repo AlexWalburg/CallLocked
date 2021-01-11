@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -81,13 +83,15 @@ void addNumberViaText(BuildContext context) async{
     int listingNum = int.parse(code.substring(0,code.indexOf("\n")));
     var encoder = constants.RsaKeyHelper();
     var pubKey = encoder.parsePublicKeyFromPem(pem);
-    var encodedNum = encoder.encrypt(numToEncrypt, pubKey);
-    var encodedName = encoder.encrypt(nameToEncrypt, pubKey);
+    var key = constants.AesHelper.deriveKey(numToEncrypt + DateTime.now().toString());
+    var encodedNum = constants.AesHelper.encrypt(key,numToEncrypt);
+    var encodedName = constants.AesHelper.encrypt(key,nameToEncrypt);
+    var encodedKey = encoder.encrypt(base64Encode(key), pubKey);
     var listingMaker = ListingMaker();
-    var listing = Listing.fromMap({"id": listingNum,"phoneNum" : numToEncrypt});
+    var listing = Listing.fromMap({"id": listingNum,"phoneNum" : numToEncrypt,"name" : nameToEncrypt});
     await listingMaker.open();
     listingMaker.insert(listing);
-    constants.Constants.registerListing(listingNum, encodedNum,encodedName);
+    constants.Constants.registerListing(listingNum, encodedNum,encodedName,encodedKey);
   }
   showDialog(
       context: context,
@@ -131,13 +135,15 @@ void addNumberViaCamera(BuildContext context) async{
     int listingNum = int.parse(code.substring(0,code.indexOf("\n")));
     var encoder = constants.RsaKeyHelper();
     var pubKey = encoder.parsePublicKeyFromPem(pem);
-    var encodedNum = encoder.encrypt(numToEncrypt, pubKey);
-    var encodedName = encoder.encrypt(nameToEncrypt, pubKey);
+    var key = constants.AesHelper.deriveKey(numToEncrypt + DateTime.now().toString());
+    var encodedNum = constants.AesHelper.encrypt(key,numToEncrypt);
+    var encodedName = constants.AesHelper.encrypt(key,nameToEncrypt);
+    var encodedKey = encoder.encrypt(base64Encode(key), pubKey);
     var listingMaker = ListingMaker();
-    var listing = Listing.fromMap({"id": listingNum,"phoneNum" : numToEncrypt});
+    var listing = Listing.fromMap({"id": listingNum,"phoneNum" : numToEncrypt,"name" : nameToEncrypt});
     await listingMaker.open();
     listingMaker.insert(listing);
-    constants.Constants.registerListing(listingNum, encodedNum,encodedName);
+    constants.Constants.registerListing(listingNum, encodedNum,encodedName,encodedKey);
   }
   showDialog(
       context: context,
@@ -173,17 +179,20 @@ void addNumberViaImage(BuildContext context) async{
       return;
     }
     String code = await scanner.scanPath(image.path);
+
     String pem = code.substring(code.indexOf("\n")+1);
     int listingNum = int.parse(code.substring(0,code.indexOf("\n")));
     var encoder = constants.RsaKeyHelper();
     var pubKey = encoder.parsePublicKeyFromPem(pem);
-    var encodedNum = encoder.encrypt(numToEncrypt, pubKey);
-    var encodedName = encoder.encrypt(nameToEncrypt,pubKey);
+    var key = constants.AesHelper.deriveKey(numToEncrypt + DateTime.now().toString());
+    var encodedNum = constants.AesHelper.encrypt(key,numToEncrypt);
+    var encodedName = constants.AesHelper.encrypt(key,nameToEncrypt);
+    var encodedKey = encoder.encrypt(base64Encode(key), pubKey);
     var listingMaker = ListingMaker();
-    var listing = Listing.fromMap({"id": listingNum,"phoneNum" : numToEncrypt});
+    var listing = Listing.fromMap({"id": listingNum,"phoneNum" : numToEncrypt,"name" : nameToEncrypt});
     await listingMaker.open();
     listingMaker.insert(listing);
-    constants.Constants.registerListing(listingNum, encodedNum,encodedName);
+    constants.Constants.registerListing(listingNum, encodedNum,encodedName,encodedKey);
   }
   showDialog(
       context: context,
@@ -270,7 +279,7 @@ class ListingMaker{
     return await db.insert('listings', entry.toMap());
   }
   Future<List<Listing>> getListings(int id) async {
-    List<Map> maps = await db.query('listings', columns: ['id', 'phoneNum'], where: 'id=?', whereArgs: [id]);
+    List<Map> maps = await db.query('listings', columns: ['id', 'phoneNum','name'], where: 'id=?', whereArgs: [id]);
     List<Listing> toReturn = new List();
     for(Map m in maps){
       toReturn.add(Listing.fromMap(m));
@@ -317,7 +326,6 @@ class GroupMaker{
   }
   Future close() async => db.close();
   Future<int> delete(int id) async {
-    print(db.isOpen);
     return await db.delete('groups', where: 'id=?', whereArgs: [id]);
   }
   Future<int> update(Group entry) async{
