@@ -168,8 +168,8 @@ class ManageGroupsPageState extends State<ManageGroupsPage>{
                             )
                         )),
                         actions: [
-                          FlatButton(onPressed: (){Navigator.of(context).pop();}, child: Text("Cancel")),
-                          RaisedButton(onPressed: (){Navigator.of(context).pop(); Constants.registerGroup(groupName, isPublic); }, child: Text("Confirm"))
+                          FlatButton(onPressed: (){Navigator.of(context, rootNavigator: true).pop();}, child: Text("Cancel")),
+                          RaisedButton(onPressed: (){Navigator.of(context, rootNavigator: true).pop(); Constants.registerGroup(groupName, isPublic); }, child: Text("Confirm"))
                         ]
                     )
                 );
@@ -315,8 +315,8 @@ class GroupPanel extends StatelessWidget{
                       content: Text("Are you sure you want to hard resync? This may take a while"),
                       actions: [
                         TextButton(
-                            onPressed: (){Navigator.pop(context);}, child: Text("Cancel")),
-                        RaisedButton(onPressed: (){Constants.hardSyncNums(group.id); Navigator.pop(context);}, child: Text("Resync")),
+                            onPressed: (){Navigator.of(context, rootNavigator: true).pop();}, child: Text("Cancel")),
+                        RaisedButton(onPressed: (){Constants.hardSyncNums(group.id); Navigator.of(context, rootNavigator: true).pop();}, child: Text("Resync")),
                       ],
                     )
                   );
@@ -335,8 +335,8 @@ class GroupPanel extends StatelessWidget{
                     "Are you sure you want to delete this group? This is a permanent action which cannot be undone.\n (Warning: it takes some time to update that an entry is gone, try going to the home tab and back)"),
                   actions: [
                     TextButton(
-                        onPressed: (){Navigator.pop(context);}, child: Text("Cancel")),
-                    RaisedButton(onPressed: (){removeGroup(); Navigator.pop(context);}, child: Text("Delete")),
+                        onPressed: (){Navigator.of(context, rootNavigator: true).pop();}, child: Text("Cancel")),
+                    RaisedButton(onPressed: (){removeGroup(); Navigator.of(context, rootNavigator: true).pop();}, child: Text("Delete")),
                   ],
                 ),
                 context: context,

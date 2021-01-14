@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:fast_rsa/model/bridge.pbenum.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:contacts_service/contacts_service.dart';
 import 'package:pointycastle/export.dart';
@@ -6,7 +7,7 @@ import 'package:pointycastle/random/fortuna_random.dart';
 import 'package:http/http.dart' as http;
 import 'package:asn1lib/asn1lib.dart';
 import 'package:CallLock/databaseStuff.dart';
-import 'dart:convert';
+import 'package:fast_rsa/rsa.dart';
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:io';
@@ -41,8 +42,11 @@ class Constants {
     return response;
   }
   static Future<Group> pullGroup(String idString) async {
+    print(1);
     GroupMaker gm = GroupMaker();
+    print(2);
     await gm.open();
+    print(3);
     String pem = idString.substring(idString.indexOf("\n") + 1);
     int listingNum = int.parse(idString.substring(0, idString.indexOf("\n")));
     // check if the group has already been added
@@ -54,11 +58,12 @@ class Constants {
     var encryptedName = jsonDecode((await http
             .post(address + '/getListingName', body: {"listingId": listingNum.toString()}))
         .body);
-    var decrypter = new RsaKeyHelper();
-    var key = base64Decode(
-        decrypter.decrypt(
-            encryptedName[1],
-            decrypter.parsePrivateKeyFromPem(pem)));
+    var key = await RSA.decryptOAEPBytes(
+            base64Decode(encryptedName[1]),
+            "",
+            Hash.HASH_SHA256,
+            pem);
+    print(key);
     String name = String.fromCharCodes(base64Decode(encryptedName[0]));
     if(key.lengthInBytes!=0){
       name = AesHelper.decrypt(key, encryptedName[0]);
@@ -72,30 +77,29 @@ class Constants {
 
   static void registerGroup(String groupName, bool isPublic) async {
     //todo gen key, make api calls
-    var rsaHelper = new RsaKeyHelper();
-    var createKeys = rsaHelper.generateKeyPair();
-    var deleteKeys = rsaHelper.generateKeyPair();
+    var createKeys = await RSA.generate(2048);
+    var deleteKeys = await RSA.generate(2048);
     var key = AesHelper.deriveKey(groupName + DateTime.now().toString());
     var encryptedKey = "";
     String pubkey = "";
     var name = groupName;
     if (isPublic) {
-      pubkey = rsaHelper.encodePrivateKeyToPem(
-          createKeys.privateKey); // I swear this makes more sense in context
+      pubkey = await RSA.convertPrivateKeyToPKCS8(createKeys.privateKey); // I swear this makes more sense in context
     } else{
       name = AesHelper.encrypt(key, name);
-      encryptedKey = rsaHelper.encrypt(base64Encode(key), createKeys.publicKey);
+      encryptedKey = base64Encode(await RSA.encryptOAEPBytes(key,"",Hash.HASH_SHA256, createKeys.publicKey));
     }
     var response = await http.post(address + "/makeListing", body: {
       'key': encryptedKey,
-      'delKey': rsaHelper.encodePrivateKeyToPem(deleteKeys.privateKey),
+      'delKey': await RSA.convertPrivateKeyToPKCS8(deleteKeys.privateKey),
       'name': name,
       'pubkey': pubkey
     });
     var listing = jsonDecode(response.body);
-    String deleteKey = rsaHelper.encodePublicKeyToPem(deleteKeys.publicKey);
-    String privkey = rsaHelper.encodePrivateKeyToPem(createKeys.privateKey);
-    pubkey = rsaHelper.encodePublicKeyToPem(createKeys.publicKey);
+    String deleteKey = await RSA.convertPublicKeyToPKCS1(deleteKeys.publicKey);
+    String privkey = await RSA.convertPrivateKeyToPKCS8(createKeys.privateKey);
+    pubkey = jsonEncode(await RSA.convertPublicKeyToPKCS1(createKeys.publicKey));
+    print(pubkey);
     Group newGroup = new Group(listing, deleteKey, groupName, privkey, pubkey);
     GroupMaker maker = new GroupMaker();
     await maker.open();
@@ -116,16 +120,14 @@ class Constants {
     await gm.open();
     var lm = new ListingMaker();
     await lm.open();
-    var decryptor = RsaKeyHelper();
       if (!await Permission.contacts.isGranted && !await Permission.contacts.request().isGranted){
         return;
       }
       changes.forEach((num, encryptedPhoneNums) async {
       if (encryptedPhoneNums.isNotEmpty) {
         Group group = await gm.getGroup(int.parse(num));
-        var privKey = decryptor.parsePrivateKeyFromPem(group.privkey);
         for (var encryptedNumber in encryptedPhoneNums) {
-          Uint8List key = base64Decode(decryptor.decrypt(encryptedNumber[2], privKey));
+          Uint8List key = await RSA.decryptOAEPBytes(base64Decode(encryptedNumber[2]),"",Hash.HASH_SHA256, group.privkey);
           var decryptedNumber = AesHelper.decrypt(key, encryptedNumber[0]);
           var decryptedName = AesHelper.decrypt(key, encryptedNumber[1]);
           lm.insert(Listing(group.id,decryptedNumber,decryptedName));
@@ -170,15 +172,16 @@ class Constants {
     group.timestamp = DateTime.now().millisecondsSinceEpoch;
     gm.update(group); //get that updated asap
     var numbers = jsonDecode(response.body);
-    var decryptor = RsaKeyHelper();
-    var privKey = decryptor.parsePrivateKeyFromPem(group.privkey);
     if (await Permission.contacts.isGranted ||
         await Permission.contacts.request().isGranted) {
       //we use the ||'s feature to automatically skip if the first one returns true to branch automatically
       for (var encryptedNumber in numbers) {
-        Uint8List key = base64Decode(decryptor.decrypt(encryptedNumber[2], privKey));
+        Uint8List key = await RSA.decryptOAEPBytes(base64Decode(encryptedNumber[2]),"",Hash.HASH_SHA256, group.privkey);
+        print(key);
         var decryptedNumber = AesHelper.decrypt(key, encryptedNumber[0]);
+        print(decryptedNumber);
         var decryptedName = AesHelper.decrypt(key, encryptedNumber[1]);
+        print(decryptedName);
         lm.insert(Listing(group.id,decryptedNumber,decryptedName));
         var contactsWithNum = await ContactsService.getContactsForPhone(
             decryptedNumber,

@@ -1,9 +1,11 @@
 import 'dart:convert';
 
+import 'package:fast_rsa/model/bridge.pb.dart';
 import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:CallLock/constants.dart' as constants;
+import 'package:fast_rsa/rsa.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:qrscan/qrscan.dart' as scanner;
@@ -58,6 +60,7 @@ void addGroupViaImage(BuildContext context) async{
       return;
     }
     String code = await scanner.scanPath(image.path);
+    print(code);
     constants.Constants.pullGroup(code);
   }
   showDialog(
@@ -81,12 +84,12 @@ void addNumberViaText(BuildContext context) async{
   void addImageForReal() async{
     String pem = code.substring(code.indexOf("\n")+1);
     int listingNum = int.parse(code.substring(0,code.indexOf("\n")));
-    var encoder = constants.RsaKeyHelper();
-    var pubKey = encoder.parsePublicKeyFromPem(pem);
-    var key = constants.AesHelper.deriveKey(numToEncrypt + DateTime.now().toString());
+
+
+    var key = constants.AesHelper.deriveKey(numToEncrypt+ nameToEncrypt + DateTime.now().toString());
     var encodedNum = constants.AesHelper.encrypt(key,numToEncrypt);
     var encodedName = constants.AesHelper.encrypt(key,nameToEncrypt);
-    var encodedKey = encoder.encrypt(base64Encode(key), pubKey);
+    var encodedKey = base64Encode(await RSA.encryptOAEPBytes(key,"",Hash.HASH_SHA256,pem));
     var listingMaker = ListingMaker();
     var listing = Listing.fromMap({"id": listingNum,"phoneNum" : numToEncrypt,"name" : nameToEncrypt});
     await listingMaker.open();
@@ -133,12 +136,11 @@ void addNumberViaCamera(BuildContext context) async{
 
     String pem = code.substring(code.indexOf("\n")+1);
     int listingNum = int.parse(code.substring(0,code.indexOf("\n")));
-    var encoder = constants.RsaKeyHelper();
-    var pubKey = encoder.parsePublicKeyFromPem(pem);
-    var key = constants.AesHelper.deriveKey(numToEncrypt + DateTime.now().toString());
+
+    var key = constants.AesHelper.deriveKey(numToEncrypt+ nameToEncrypt + DateTime.now().toString());
     var encodedNum = constants.AesHelper.encrypt(key,numToEncrypt);
     var encodedName = constants.AesHelper.encrypt(key,nameToEncrypt);
-    var encodedKey = encoder.encrypt(base64Encode(key), pubKey);
+    var encodedKey = base64Encode(await RSA.encryptOAEPBytes(key,"",Hash.HASH_SHA256,pem));
     var listingMaker = ListingMaker();
     var listing = Listing.fromMap({"id": listingNum,"phoneNum" : numToEncrypt,"name" : nameToEncrypt});
     await listingMaker.open();
@@ -182,12 +184,11 @@ void addNumberViaImage(BuildContext context) async{
 
     String pem = code.substring(code.indexOf("\n")+1);
     int listingNum = int.parse(code.substring(0,code.indexOf("\n")));
-    var encoder = constants.RsaKeyHelper();
-    var pubKey = encoder.parsePublicKeyFromPem(pem);
-    var key = constants.AesHelper.deriveKey(numToEncrypt + DateTime.now().toString());
+
+    var key = constants.AesHelper.deriveKey(numToEncrypt+ nameToEncrypt + DateTime.now().toString());
     var encodedNum = constants.AesHelper.encrypt(key,numToEncrypt);
     var encodedName = constants.AesHelper.encrypt(key,nameToEncrypt);
-    var encodedKey = encoder.encrypt(base64Encode(key), pubKey);
+    var encodedKey = base64Encode(await RSA.encryptOAEPBytes(key,"",Hash.HASH_SHA256,pem));
     var listingMaker = ListingMaker();
     var listing = Listing.fromMap({"id": listingNum,"phoneNum" : numToEncrypt,"name" : nameToEncrypt});
     await listingMaker.open();
