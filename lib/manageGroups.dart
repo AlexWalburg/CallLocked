@@ -245,7 +245,7 @@ class GroupPanel extends StatelessWidget{
                       children: [
                         Text("Warning: This is the ADD CONTACT dialog. If you share this with someone, they can add any number they want to your group."),
                         RaisedButton(
-                            onPressed: (){Share.share("Hello! The person sending this wants you to register your number with them on CallLock. Just head over to calllock.github.io and use everything below the dashed line!\n-----\n" + group.id.toString() + "\n" + group.pubkey);},
+                            onPressed: (){Share.share("Hello! The person sending this wants you to register your number with them on CallLock. Just head over to calllock.github.io and use everything below the dashed line!\n-----\n" + group.id.toString() + "\n" + group.pubkey.toString());},
                             child: Text("Share Text")
                         ),
                         RaisedButton(

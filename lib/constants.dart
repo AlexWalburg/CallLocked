@@ -96,9 +96,9 @@ class Constants {
       'pubkey': pubkey
     });
     var listing = jsonDecode(response.body);
-    String deleteKey = await RSA.convertPublicKeyToPKCS1(deleteKeys.publicKey);
+    String deleteKey = await RSA.convertPublicKeyToPKIX(deleteKeys.publicKey);
     String privkey = await RSA.convertPrivateKeyToPKCS8(createKeys.privateKey);
-    pubkey = jsonEncode(await RSA.convertPublicKeyToPKCS1(createKeys.publicKey));
+    pubkey = await RSA.convertPublicKeyToPKIX(createKeys.publicKey);
     print(pubkey);
     Group newGroup = new Group(listing, deleteKey, groupName, privkey, pubkey);
     GroupMaker maker = new GroupMaker();
@@ -142,12 +142,8 @@ class Constants {
                 phones: [new Item(label: "home", value: decryptedNumber)]));
           } else {
             for (var contact in contactsWithNum) {
-              if (contact.prefix != null) {
-                if (!contact.prefix.contains(group.name + ": ")) {
-                  contact.prefix = group.name + ": " + contact.prefix;
-                }
-              } else {
-                contact.prefix = group.name + ": ";
+              if (!contact.displayName.contains(group.name + ": ")) {
+                contact.prefix = group.name + ": " + contact.prefix;
               }
               ContactsService.updateContact(contact);
             }
@@ -194,12 +190,8 @@ class Constants {
               phones: [new Item(label: "home", value: decryptedNumber)]));
         } else {
           for (var contact in contactsWithNum) {
-            if (contact.prefix != null) {
-              if (!contact.prefix.contains(group.name + ": ")) {
-                contact.prefix = group.name + ": " + contact.prefix;
-              }
-            } else {
-              contact.prefix = group.name + ": ";
+            if (!contact.displayName.contains(group.name + ": ")) {
+              contact.prefix = group.name + ": " + contact.prefix;
             }
             ContactsService.updateContact(contact);
           }
